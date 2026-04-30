@@ -103,15 +103,20 @@ def screen_payment(user):
         print("\n--- Payment & Address ---")
         print(" 1) List addresses")
         print(" 2) Add address")
-        print(" 3) Delete address")
-        print(" 4) List cards")
-        print(" 5) Add card")
-        print(" 6) Delete card")
+        print(" 3) Modify address")
+        print(" 4) Delete address")
+        print(" 5) List cards")
+        print(" 6) Add card")
+        print(" 7) Modify card")
+        print(" 8) Delete card")
         print(" 0) Back")
         choice = prompt("Choice")
 
         if choice == "1":
-            for a in payments.list_addresses(user["cust_id"]):
+            addrs = payments.list_addresses(user["cust_id"])
+            if not addrs:
+                print("  (no addresses on file)")
+            for a in addrs:
                 print(f"  [{a['addr_id']}] {a['name']} - "
                       f"{a['addr_line1']}, {a['city']}, {a['state']} "
                       f"{a['zip']}, {a['country']}")
@@ -128,16 +133,34 @@ def screen_payment(user):
             )
             print("Added.")
         elif choice == "3":
+            addr_id = prompt_int("Address ID to modify")
+            print("Leave blank to keep existing value.")
+            fields = {}
+            for field, label in [("name", "Name"), ("addr_line1", "Line 1"),
+                                  ("addr_line2", "Line 2"), ("city", "City"),
+                                  ("state", "State / Province"),
+                                  ("country", "Country"), ("zip", "ZIP / Postal code")]:
+                val = prompt_optional(label)
+                if val:
+                    fields[field] = val
+            if payments.update_address(addr_id, user["cust_id"], **fields):
+                print("Address updated.")
+            else:
+                print("Address not found or nothing changed.")
+        elif choice == "4":
             addr_id = prompt_int("Address ID to delete")
             ok, msg = payments.delete_address(addr_id, user["cust_id"])
             print(msg)
-        elif choice == "4":
-            for c in payments.list_cards(user["cust_id"]):
+        elif choice == "5":
+            cards = payments.list_cards(user["cust_id"])
+            if not cards:
+                print("  (no cards on file)")
+            for c in cards:
                 masked = "*" * (len(c["card_number"]) - 4) + c["card_number"][-4:]
                 print(f"  {masked}  exp {c['exp_date']}  "
                       f"name {c['name']}  addr#{c['addr_id']}")
-        elif choice == "5":
-            payments.add_card(
+        elif choice == "6":
+            ok, msg = payments.add_card(
                 user["cust_id"],
                 prompt("Card number"),
                 prompt_int("Billing address ID"),
@@ -145,8 +168,23 @@ def screen_payment(user):
                 prompt("Security code"),
                 prompt("Expiration (YYYY-MM-DD)"),
             )
-            print("Card added.")
-        elif choice == "6":
+            print(msg)
+        elif choice == "7":
+            num = prompt("Card number to modify")
+            print("Leave blank to keep existing value.")
+            fields = {}
+            for field, label in [("name", "Name on card"),
+                                  ("security_code", "Security code"),
+                                  ("exp_date", "Expiration (YYYY-MM-DD)")]:
+                val = prompt_optional(label)
+                if val:
+                    fields[field] = val
+            new_addr = prompt_int("New billing address ID (blank to keep)")
+            if new_addr is not None:
+                fields["addr_id"] = new_addr
+            _, msg = payments.update_card(num, user["cust_id"], **fields)
+            print(msg)
+        elif choice == "8":
             num = prompt("Card number to delete")
             print("Deleted." if payments.delete_card(num, user["cust_id"])
                   else "Not found.")

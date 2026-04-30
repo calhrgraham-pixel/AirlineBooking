@@ -92,15 +92,46 @@ def list_cards(cust_id):
 
 
 def add_card(cust_id, card_number, addr_id, name, security_code, exp_date):
-    execute(
-        """
-        INSERT INTO Card (card_number, cust_id, addr_id,
-                          name, security_code, exp_date)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        """,
-        (card_number, cust_id, addr_id, name, security_code, exp_date),
+    row = query_one(
+        "SELECT 1 FROM Billing_Address WHERE addr_id = %s AND cust_id = %s",
+        (addr_id, cust_id),
     )
-    return True
+    if not row:
+        return False, f"Billing address ID {addr_id} does not exist or does not belong to your account. Add an address first (option 2)."
+    try:
+        execute(
+            """
+            INSERT INTO Card (card_number, cust_id, addr_id,
+                              name, security_code, exp_date)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (card_number, cust_id, addr_id, name, security_code, exp_date),
+        )
+        return True, "Card added."
+    except psycopg2.errors.ForeignKeyViolation:
+        return False, f"Billing address ID {addr_id} does not exist. Add an address first (option 2)."
+
+
+def update_card(card_number, cust_id, **fields):
+    """Partial update. Allowed fields: name, security_code, exp_date, addr_id."""
+    allowed = {"name", "security_code", "exp_date", "addr_id"}
+    cols = [c for c in fields if c in allowed]
+    if not cols:
+        return False, "Nothing to update."
+    if "addr_id" in fields:
+        row = query_one(
+            "SELECT 1 FROM Billing_Address WHERE addr_id = %s AND cust_id = %s",
+            (fields["addr_id"], cust_id),
+        )
+        if not row:
+            return False, f"Address ID {fields['addr_id']} does not exist or does not belong to your account."
+    set_clause = ", ".join(f"{c} = %s" for c in cols)
+    values = [fields[c] for c in cols] + [card_number, cust_id]
+    updated = execute(
+        f"UPDATE Card SET {set_clause} WHERE card_number = %s AND cust_id = %s",
+        values,
+    )
+    return (True, "Card updated.") if updated else (False, "Card not found.")
 
 
 def delete_card(card_number, cust_id):

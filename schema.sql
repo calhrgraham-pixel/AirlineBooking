@@ -1,10 +1,3 @@
--- =============================================================
--- Airline Booking - Schema
--- Based on cs425sql.txt with two additions required by the spec:
---   1. Customer.home_iata  (section 3.1: each customer has a home airport)
---   2. Booking_Segment      (section 3.3: a booking can have multiple flights)
--- =============================================================
-
 DROP TABLE IF EXISTS Booking_Segment CASCADE;
 DROP TABLE IF EXISTS Booking         CASCADE;
 DROP TABLE IF EXISTS Price           CASCADE;
@@ -49,12 +42,12 @@ CREATE TABLE Airline (
 
 
 CREATE TABLE Customer (
-    cust_id    SERIAL       PRIMARY KEY,
-    name       VARCHAR(100) NOT NULL,
-    email      VARCHAR(150) NOT NULL UNIQUE,
-    home_iata  CHAR(3),
-    FOREIGN KEY (home_iata) REFERENCES Airport(IATA) ON UPDATE CASCADE
+    cust_id   SERIAL PRIMARY KEY,
+    name      TEXT NOT NULL,
+    email     TEXT UNIQUE NOT NULL,
+    home_iata CHAR(3)
 );
+
 
 
 CREATE TABLE Billing_Address (
