@@ -41,7 +41,7 @@ class App(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (LoginFrame, RegisterFrame, MainFrame, SearchFrame, PaymentFrame, BookingsFrame):
+        for F in (LoginFrame, RegisterFrame, MainFrame, BrowseFlightsFrame, SearchFrame, PaymentFrame, BookingsFrame):
             frame = F(container, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky="nsew")
@@ -153,6 +153,7 @@ class MainFrame(tk.Frame):
         self.welcome.pack(pady=(30, 30))
 
         for text, frame_class in [
+            ("Browse All Flights",    BrowseFlightsFrame),
             ("Search & Book Flights", SearchFrame),
             ("Payment & Addresses",   PaymentFrame),
             ("My Bookings",           BookingsFrame),
@@ -376,6 +377,111 @@ class BookDialog(tk.Toplevel):
             self.destroy()
         except Exception as e:
             messagebox.showerror("Booking Failed", str(e))
+
+
+# ---- Browse All Flights ----
+
+class BrowseFlightsFrame(tk.Frame):
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self._flights = []
+
+        tk.Label(self, text="Browse All Flights", font=("Arial", 14, "bold")).pack(pady=10)
+
+        filter_frame = tk.Frame(self, padx=20, pady=6)
+        filter_frame.pack(fill="x")
+
+        self.vars = {}
+        fields = [
+            ("Origin IATA",      "origin"),
+            ("Destination IATA", "dest"),
+            ("Date (YYYY-MM-DD)","date"),
+            ("Airline Code",     "airline"),
+        ]
+        for i, (label, key) in enumerate(fields):
+            tk.Label(filter_frame, text=f"{label}:").grid(row=0, column=i*2, sticky="e", padx=4)
+            var = tk.StringVar()
+            tk.Entry(filter_frame, textvariable=var, width=14).grid(row=0, column=i*2+1, sticky="w", padx=4)
+            self.vars[key] = var
+
+        btn_frame = tk.Frame(self, padx=20)
+        btn_frame.pack(fill="x", pady=4)
+        tk.Button(btn_frame, text="Search",       command=self.do_search, width=12).pack(side="left", padx=4)
+        tk.Button(btn_frame, text="Show All",     command=self.show_all,  width=12).pack(side="left", padx=4)
+        tk.Button(btn_frame, text="Book Selected",command=self.do_book,   width=14).pack(side="left", padx=4)
+        tk.Button(btn_frame, text="Back", command=lambda: app.show_frame(MainFrame), width=10).pack(side="left", padx=4)
+
+        tree_frame = tk.Frame(self)
+        tree_frame.pack(fill="both", expand=True, padx=15, pady=(4, 10))
+
+        cols = ("Airline", "Flight", "Date", "Origin", "Dest", "Depart", "Arrive", "Duration", "Economy", "First", "Eco Left", "First Left")
+        self.tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=14)
+        for col in cols:
+            self.tree.heading(col, text=col)
+            w = 90 if col in ("Economy", "First", "Duration") else 65
+            self.tree.column(col, width=w, anchor="center")
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.pack(side="right", fill="y")
+        hsb.pack(side="bottom", fill="x")
+        self.tree.pack(fill="both", expand=True)
+
+    def on_show(self):
+        self.show_all()
+
+    def show_all(self):
+        for v in self.vars.values():
+            v.set("")
+        self._load()
+
+    def do_search(self):
+        self._load(
+            origin=self.vars["origin"].get().strip() or None,
+            destination=self.vars["dest"].get().strip() or None,
+            flight_date=self._parse_date(self.vars["date"].get()),
+            airline_code=self.vars["airline"].get().strip() or None,
+        )
+
+    def _parse_date(self, s):
+        try:
+            return datetime.strptime(s.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    def _load(self, **kwargs):
+        self.tree.delete(*self.tree.get_children())
+        self._flights = search.browse_flights(**kwargs)
+        if not self._flights:
+            self.tree.insert("", "end", values=("(no flights found)",) + ("",) * 11)
+            return
+        for f in self._flights:
+            self.tree.insert("", "end", values=(
+                f["airline_code"],
+                f["flight_num"],
+                str(f["flight_date"]),
+                f["origin_iata"],
+                f["destination_iata"],
+                f["depart_time"].strftime("%H:%M"),
+                f["arrive_time"].strftime("%H:%M"),
+                fmt_dur(f["duration_min"]),
+                fmt_price(f["eco_price"]),
+                fmt_price(f["first_price"]),
+                f["eco_left"],
+                f["first_left"],
+            ))
+
+    def do_book(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showerror("Error", "Select a flight to book.")
+            return
+        idx = self.tree.index(sel[0])
+        if idx >= len(self._flights):
+            return
+        BookDialog(self, self.app, [self._flights[idx]])
 
 
 # ---- Payment & Addresses ----

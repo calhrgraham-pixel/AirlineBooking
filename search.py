@@ -140,6 +140,47 @@ def _build_conn(legs):
     }
 
 
+def browse_flights(origin=None, destination=None, flight_date=None, airline_code=None):
+    """
+    Return individual flights matching any combination of optional filters.
+    All parameters are optional — omit any to see all values.
+    """
+    conditions = []
+    params = []
+    if origin:
+        conditions.append("f.origin_iata = %s")
+        params.append(origin.upper())
+    if destination:
+        conditions.append("f.destination_iata = %s")
+        params.append(destination.upper())
+    if flight_date:
+        conditions.append("f.flight_date = %s")
+        params.append(flight_date)
+    if airline_code:
+        conditions.append("f.airline_code = %s")
+        params.append(airline_code.upper())
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    sql = f"""
+    WITH cur_price AS ({_CURRENT_PRICE}),
+         booked    AS ({_SEATS_BOOKED})
+    SELECT f.airline_code, f.flight_num, f.flight_date,
+           f.origin_iata, f.destination_iata,
+           f.depart_time, f.arrive_time,
+           EXTRACT(EPOCH FROM (f.arrive_time - f.depart_time))/60 AS duration_min,
+           p.first_price, p.eco_price,
+           (f.max_first - COALESCE(b.booked_first, 0)) AS first_left,
+           (f.max_eco   - COALESCE(b.booked_eco,   0)) AS eco_left
+    FROM Flight f
+    JOIN cur_price p USING (airline_code, flight_num, flight_date)
+    LEFT JOIN booked b USING (airline_code, flight_num, flight_date)
+    {where}
+    ORDER BY f.flight_date, f.depart_time
+    """
+    return [dict(r) for r in query_all(sql, params)]
+
+
 def search_round_trip(origin, destination, out_date, return_date, **kwargs):
     """
     Return pairs of (outbound, return) connections. Filters/sort apply
