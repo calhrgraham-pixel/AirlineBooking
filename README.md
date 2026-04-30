@@ -21,16 +21,18 @@ Terminal application skeleton for the airline flight booking project.
 
 2. Create the database and load the schema:
 
-       createdb airline
-       psql -d airline -f schema.sql
+       psql -U postgres -c "CREATE DATABASE \"Airline Booking\""
+       psql -U postgres -d "Airline Booking" -f schema.sql
 
-3. Set environment variables (or accept the defaults in `db.py`):
+3. Create a `.env` file in the project root with your credentials:
 
-       export DB_NAME=airline
-       export DB_USER=postgres
-       export DB_PASSWORD=yourpassword
-       export DB_HOST=localhost
-       export DB_PORT=5432
+       DB_HOST=localhost
+       DB_PORT=5432
+       DB_NAME=Airline Booking
+       DB_USER=postgres
+       DB_PASSWORD=yourpassword
+
+   The `.env` file is listed in `.gitignore` and will not be committed.
 
 4. Run:
 
