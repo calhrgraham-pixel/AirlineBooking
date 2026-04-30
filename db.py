@@ -11,14 +11,16 @@ from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
+load_dotenv()
 
 DB_CONFIG = {
-    "host":     os.environ.get("DB_HOST",     "localhost"),
-    "port":     os.environ.get("DB_PORT",     "5432"),
-    "dbname":   os.environ.get("DB_NAME",     "Airline Booking"),
-    "user":     os.environ.get("DB_USER",     "postgres"),
-    "password": os.environ.get("DB_PASSWORD", "Dcsd237796"),
+    "host":     os.environ.get("DB_HOST",   "localhost"),
+    "port":     os.environ.get("DB_PORT",   "5432"),
+    "dbname":   os.environ.get("DB_NAME",   "Airline Booking"),
+    "user":     os.environ.get("DB_USER",   "postgres"),
+    "password": os.environ["DB_PASSWORD"],
 }
 
 
